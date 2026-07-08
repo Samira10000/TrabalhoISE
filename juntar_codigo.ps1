@@ -5,6 +5,9 @@ $arquivos_h = @(
     "src\entidades\player.h",
     "src\entidades\enemy.h",
     "src\entidades\projectiles.h",
+    "src\ambiente\fundo_cenario1.h",
+    "src\ambiente\fundo_cenario2.h",
+    "src\ambiente\fundo_cenario3.h",
     "src\ambiente\level.h",
     "src\core\game.h"
 )

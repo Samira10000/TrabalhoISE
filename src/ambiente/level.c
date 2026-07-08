@@ -1,6 +1,9 @@
 #include "level.h"
 #include "hardware.h"
 #include "game.h"
+#include "fundo_cenario1.h"
+#include "fundo_cenario2.h"
+#include "fundo_cenario3.h"
 
 Gap gaps[MAX_GAPS];
 Lava lavas[MAX_LAVAS];
@@ -69,13 +72,31 @@ short int cor_chao_zona(int zona) {
 }
 
 void desenha_ceu(void) {
-    int sx;
+    int sx, sy;
     for (sx = 0; sx < SCREEN_WIDTH; sx++) {
         int mundo_x = sx + camera_x;
         int zona = zona_visual(mundo_x);
-        int col;
-        for (col = 0; col < GROUND_Y; col++) {
-            desenha_pixel(sx, col, cor_ceu_zona(zona));
+
+        /* Seleciona o fundo correto baseado na zona */
+        const unsigned short *fundo;
+        int fundo_w;
+        if (zona == 0) {
+            fundo = fundo_cenario1;
+            fundo_w = FUNDO_CENARIO1_W;
+        } else if (zona == 1) {
+            fundo = fundo_cenario2;
+            fundo_w = FUNDO_CENARIO2_W;
+        } else {
+            fundo = fundo_cenario3;
+            fundo_w = FUNDO_CENARIO3_W;
+        }
+
+        int img_x = mundo_x % fundo_w;
+        if (img_x < 0) img_x += fundo_w;
+
+        for (sy = 0; sy < SCREEN_HEIGHT; sy++) {
+            unsigned short cor = fundo[sy * fundo_w + img_x];
+            desenha_pixel(sx, sy, cor);
         }
     }
 }
