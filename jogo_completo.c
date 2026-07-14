@@ -88,7 +88,7 @@
 #define MAX_BARRIS              4
 #define RAIO_EXPLOSAO          40  /* raio do dano em area, em pixels */
 #define DANO_EXPLOSAO_INIMIGO   2
-#define BARRIL_DURACAO_FRAME    6  /* ticks de jogo que cada frame da animacao fica na tela */
+#define BARRIL_DURACAO_FRAME    3  /* ticks de jogo que cada frame da animacao fica na tela */
 
 /* ============================================================================
  * CORES (RGB565)
@@ -17510,32 +17510,6 @@ void desenha_cenario(void) {
             int col;
             for (col = 0; col < (SCREEN_HEIGHT - GROUND_Y); col++)
                 desenha_pixel(sx, GROUND_Y + col, COLOR_BLACK);
-        }
-    }
-
-    for (i = 0; i < (nivel_largura / 150) + 1; i++) {
-        int deco_mundo_x = i * 150 + 50;
-        int deco_tela_x = deco_mundo_x - camera_x;
-        int zona = zona_visual(deco_mundo_x);
-
-        if (deco_tela_x <= -30 || deco_tela_x >= SCREEN_WIDTH) continue;
-
-        if (zona == 0) {
-            desenha_retangulo(deco_tela_x, GROUND_Y - 55, 16, 55, COLOR_STONE);
-            desenha_retangulo(deco_tela_x - 4, GROUND_Y - 59, 24, 6, COLOR_STONE_DARK);
-        } else if (zona == 1) {
-            desenha_retangulo(deco_tela_x + 4, GROUND_Y - 80, 10, 80, COLOR_STONE_DARK);
-            desenha_retangulo(deco_tela_x, GROUND_Y - 88, 18, 10, COLOR_TREASURE);
-        } else {
-            int largura_piramide = 36;
-            int altura_piramide = 30;
-            int passo;
-            for (passo = 0; passo < altura_piramide; passo += 3) {
-                int largura_atual = largura_piramide - (passo * largura_piramide) / altura_piramide;
-                desenha_retangulo(deco_tela_x + (largura_piramide - largura_atual) / 2,
-                                   GROUND_Y - altura_piramide + passo,
-                                   largura_atual, 3, COLOR_STONE_DARK);
-            }
         }
     }
 }
