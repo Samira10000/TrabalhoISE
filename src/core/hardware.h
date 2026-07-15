@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 extern volatile short int *pixel_buffer_back;
-extern int tecla_esquerda, tecla_direita, tecla_cima, tecla_atirar, tecla_reiniciar;
+extern int tecla_esquerda, tecla_direita, tecla_cima, tecla_baixo, tecla_atirar, tecla_reiniciar;
 
 void desenha_pixel(int x, int y, short int cor);
 void desenha_retangulo(int x, int y, int largura, int altura, short int cor);

@@ -128,11 +128,22 @@
 #define SCANCODE_A      0x1C
 #define SCANCODE_D      0x23
 #define SCANCODE_W      0x1D
+#define SCANCODE_S      0x1B
 #define SCANCODE_J      0x3B
 #define SCANCODE_SPACE  0x29
 #define SCANCODE_R      0x2D
 #define SCANCODE_LEFT   0x6B
 #define SCANCODE_RIGHT  0x74
 #define SCANCODE_UP     0x75
+#define SCANCODE_DOWN   0x72
+
+/* ============================================================================
+ * MENU DE CONFIGURACOES
+ * ============================================================================
+ */
+#define MENU_NUM_OPCOES   3
+#define MENU_CONTINUAR    0
+#define MENU_REINICIAR    1
+#define MENU_CONTROLES    2
 
 #endif

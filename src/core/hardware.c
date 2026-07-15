@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 volatile short int *pixel_buffer_back;
-int tecla_esquerda = 0, tecla_direita = 0, tecla_cima = 0, tecla_atirar = 0;
+int tecla_esquerda = 0, tecla_direita = 0, tecla_cima = 0, tecla_baixo = 0, tecla_atirar = 0;
 int tecla_reiniciar = 0;
 
 void desenha_pixel(int x, int y, short int cor) {
@@ -85,6 +85,7 @@ void processa_teclado(void) {
                 case SCANCODE_A: tecla_esquerda = pressionada; break;
                 case SCANCODE_D: tecla_direita = pressionada; break;
                 case SCANCODE_W: tecla_cima = pressionada; break;
+                case SCANCODE_S: tecla_baixo = pressionada; break;
                 case SCANCODE_J:
                 case SCANCODE_SPACE:
                     if (byte_extendido == 0) tecla_atirar = pressionada;
@@ -93,6 +94,7 @@ void processa_teclado(void) {
                 case SCANCODE_LEFT: if (byte_extendido) tecla_esquerda = pressionada; break;
                 case SCANCODE_RIGHT: if (byte_extendido) tecla_direita = pressionada; break;
                 case SCANCODE_UP: if (byte_extendido) tecla_cima = pressionada; break;
+                case SCANCODE_DOWN: if (byte_extendido) tecla_baixo = pressionada; break;
             }
             byte_quebra = 0;
             byte_extendido = 0;

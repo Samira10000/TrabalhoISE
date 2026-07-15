@@ -7,6 +7,7 @@
 extern int camera_x;
 extern int nivel_largura;
 extern EstadoJogo estado;
+extern int menu_opcao_selecionada;
 
 void inicializa_jogo(void);
 int colide(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh);
@@ -16,6 +17,9 @@ void desenha_tela_inicio(void);
 void desenha_tela_gameover(void);
 void desenha_tela_vitoria(void);
 void desenha_tela_pausa(void);
+void desenha_tela_configuracao(void);
+void desenha_tela_controles(void);
+void processa_menu_configuracao(void);
 void renderiza_cena(void);
 void atualiza_estado(void);
 void processa_pausa_e_reinicio(void);
