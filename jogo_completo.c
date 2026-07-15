@@ -19369,13 +19369,7 @@ void le_entrada(void) {
 }
 
 void atraso_frame(void) {
-    volatile int i;
-#ifdef CPULATOR
-    for (i = 0; i < 50000; i++) {
-#else
-    for (i = 0; i < 8000; i++) {
-#endif
-    }
+    usleep(16000); /* Limita o jogo a ~60 FPS (16ms) no Linux */
 }
 
 int main(void) {
@@ -19401,9 +19395,7 @@ int main(void) {
 
         le_entrada();
 
-#ifdef CPULATOR
         atraso_frame();
-#endif
 
         if (estado == ESTADO_GAMEOVER || estado == ESTADO_VITORIA) {
             int espera;
