@@ -18675,7 +18675,6 @@ void desenha_cenario(void) {
         int mundo_x = sx + camera_x;
         int eh_gap = 0;
         int eh_lava = 0;
-        int zona = zona_visual(mundo_x);
 
         for (i = 0; i < MAX_GAPS; i++) {
             if (mundo_x >= gaps[i].x && mundo_x < gaps[i].x + gaps[i].largura) {
@@ -18701,9 +18700,6 @@ void desenha_cenario(void) {
                     int tile_y = (col - LAVA_TILE_SIZE) % LAVA_TILE_SIZE;
                     desenha_pixel(sx, GROUND_Y + col, lava_corpo[tile_y * LAVA_TILE_SIZE + col_tile]);
                 }
-            } else {
-                for (col = 0; col < (SCREEN_HEIGHT - GROUND_Y); col++)
-                    desenha_pixel(sx, GROUND_Y + col, cor_chao_zona(zona));
             }
         } else {
             /* gap: pinta de preto para que o buraco apareca visivelmente */
