@@ -17823,12 +17823,15 @@ void inicializa_hardware_linux(void) {
         close(fd);
         exit(1);
     }
-    front_buffer_map = mmap(NULL, SCREEN_WIDTH * SCREEN_HEIGHT * 2, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, FRONT_BUFFER_ADDR);
+    
+    /* O buffer VGA do DE1-SoC tem 512 pixels por linha, ou seja, 512 * 256 * 2 bytes = 262144 bytes */
+    front_buffer_map = mmap(NULL, 262144, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, FRONT_BUFFER_ADDR);
     if (front_buffer_map == MAP_FAILED) {
         printf("ERRO: mmap front_buffer falhou.\n");
         exit(1);
     }
-    back_buffer_map = mmap(NULL, SCREEN_WIDTH * SCREEN_HEIGHT * 2, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, BACK_BUFFER_ADDR);
+    
+    back_buffer_map = mmap(NULL, 262144, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, BACK_BUFFER_ADDR);
     if (back_buffer_map == MAP_FAILED) {
         printf("ERRO: mmap back_buffer falhou.\n");
         exit(1);
