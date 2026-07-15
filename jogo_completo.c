@@ -32,6 +32,8 @@
 #define SW_BASE            0xFF200040
 #define KEY_BASE           0xFF200050
 #define PS2_BASE           0xFF200100
+#define PS2_MOUSE_BASE     0xFF200108
+
 
 /* ============================================================================
  * CONSTANTES DO JOGO
@@ -241,6 +243,8 @@ typedef struct {
 
 extern volatile short int *pixel_buffer_back;
 extern int tecla_esquerda, tecla_direita, tecla_cima, tecla_baixo, tecla_atirar, tecla_reiniciar;
+extern int mouse_x, mouse_y, mouse_click;
+
 
 void desenha_pixel(int x, int y, short int cor);
 void desenha_retangulo(int x, int y, int largura, int altura, short int cor);
@@ -17789,6 +17793,9 @@ void atraso_frame(void);
 volatile short int *pixel_buffer_back;
 int tecla_esquerda = 0, tecla_direita = 0, tecla_cima = 0, tecla_baixo = 0, tecla_atirar = 0;
 int tecla_reiniciar = 0;
+int mouse_x = SCREEN_WIDTH / 2;
+int mouse_y = SCREEN_HEIGHT / 2;
+int mouse_click = 0;
 
 void desenha_pixel(int x, int y, short int cor) {
     if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return;
@@ -17884,6 +17891,51 @@ void processa_teclado(void) {
             byte_extendido = 0;
         }
         PS2_data = *(PS2_ptr);
+    }
+}
+
+void processa_mouse(void) {
+    volatile int *ps2_mouse = (int *)PS2_MOUSE_BASE;
+    int data = *ps2_mouse;
+    static int byte_count = 0;
+    static unsigned char bytes[3];
+
+    while ((data & 0x8000) != 0) {
+        unsigned char b = data & 0xFF;
+        
+        /* Ignora ACKs ou testes que nao sao pacotes de movimento */
+        if (byte_count == 0 && (b == 0xFA || b == 0xAA)) {
+            data = *ps2_mouse;
+            continue;
+        }
+
+        /* O bit 3 do primeiro byte num mouse PS/2 sempre eh 1. Usamos para sincronia */
+        if (byte_count == 0 && !(b & 0x08)) {
+            data = *ps2_mouse;
+            continue;
+        }
+
+        bytes[byte_count++] = b;
+        if (byte_count == 3) {
+            byte_count = 0;
+            
+            mouse_click = bytes[0] & 0x01;
+
+            int dx = bytes[1];
+            if (bytes[0] & 0x10) dx |= 0xFFFFFF00;
+            
+            int dy = bytes[2];
+            if (bytes[0] & 0x20) dy |= 0xFFFFFF00;
+
+            mouse_x += dx;
+            mouse_y -= dy; /* Y invertido */
+
+            if (mouse_x < 0) mouse_x = 0;
+            if (mouse_x >= SCREEN_WIDTH) mouse_x = SCREEN_WIDTH - 1;
+            if (mouse_y < 0) mouse_y = 0;
+            if (mouse_y >= SCREEN_HEIGHT) mouse_y = SCREEN_HEIGHT - 1;
+        }
+        data = *ps2_mouse;
     }
 }
 
@@ -19140,8 +19192,21 @@ void processa_menu_configuracao(void) {
     static int cima_anterior = 0;
     static int baixo_anterior = 0;
     static int atirar_anterior = 0;
+    static int mouse_click_anterior = 0;
 
     if (estado == ESTADO_CONFIGURACAO) {
+        if (mouse_click && !mouse_click_anterior) {
+            int i;
+            for (i = 0; i < MENU_NUM_OPCOES; i++) {
+                int oy = 92 + i * 25;
+                if (mouse_x >= 72 && mouse_x <= 248 && mouse_y >= oy - 2 && mouse_y <= oy + 9) {
+                    menu_opcao_selecionada = i;
+                    tecla_atirar = 1;
+                    break;
+                }
+            }
+        }
+        
         if (tecla_cima && !cima_anterior) {
             menu_opcao_selecionada--;
             if (menu_opcao_selecionada < 0) menu_opcao_selecionada = MENU_NUM_OPCOES - 1;
@@ -19161,14 +19226,28 @@ void processa_menu_configuracao(void) {
             }
         }
     } else if (estado == ESTADO_CONTROLES) {
-        if (tecla_atirar && !atirar_anterior) {
+        if ((tecla_atirar && !atirar_anterior) || (mouse_click && !mouse_click_anterior)) {
             estado = ESTADO_CONFIGURACAO;
         }
     }
-
+    
     cima_anterior = tecla_cima;
     baixo_anterior = tecla_baixo;
     atirar_anterior = tecla_atirar;
+    mouse_click_anterior = mouse_click;
+}
+
+void desenha_cursor_mouse(void) {
+    int i;
+    for (i = 0; i < 6; i++) {
+        if (mouse_y + i < SCREEN_HEIGHT) desenha_pixel(mouse_x, mouse_y + i, COLOR_WHITE);
+    }
+    for (i = 1; i < 4; i++) {
+        if (mouse_y + i < SCREEN_HEIGHT && mouse_x + i < SCREEN_WIDTH) 
+            desenha_pixel(mouse_x + i, mouse_y + i, COLOR_WHITE);
+    }
+    if (mouse_x + 1 < SCREEN_WIDTH && mouse_y + 4 < SCREEN_HEIGHT) desenha_pixel(mouse_x + 1, mouse_y + 4, COLOR_WHITE);
+    if (mouse_x + 2 < SCREEN_WIDTH && mouse_y + 4 < SCREEN_HEIGHT) desenha_pixel(mouse_x + 2, mouse_y + 4, COLOR_WHITE);
 }
 
 void renderiza_cena(void) {
@@ -19190,10 +19269,12 @@ void renderiza_cena(void) {
     }
     if (estado == ESTADO_CONFIGURACAO) {
         desenha_tela_configuracao();
+        desenha_cursor_mouse();
         return;
     }
     if (estado == ESTADO_CONTROLES) {
         desenha_tela_controles();
+        desenha_cursor_mouse();
         return;
     }
 
@@ -19235,6 +19316,7 @@ void processa_pausa_e_reinicio(void) {
 
 void le_entrada(void) {
     processa_teclado();
+    processa_mouse();
     processa_pausa_e_reinicio();
     processa_menu_configuracao();
 }
@@ -19250,6 +19332,9 @@ void atraso_frame(void) {
 }
 
 int main(void) {
+    volatile int *ps2_mouse = (int *)PS2_MOUSE_BASE;
+    *ps2_mouse = 0xF4; /* Habilita dados do mouse */
+
     inicializa_video();
     inicializa_jogo();
     estado = ESTADO_INICIO;
