@@ -1,5 +1,9 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <stdio.h>
 
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
@@ -244,6 +248,12 @@ typedef struct {
 extern volatile short int *pixel_buffer_back;
 extern int tecla_esquerda, tecla_direita, tecla_cima, tecla_baixo, tecla_atirar, tecla_reiniciar;
 extern int mouse_x, mouse_y, mouse_click;
+
+#define LW_BRIDGE_BASE 0xFF200000
+#define LW_BRIDGE_SPAN 0x00200000
+extern void *lw_bridge_map;
+extern void *front_buffer_map;
+extern void *back_buffer_map;
 
 
 void desenha_pixel(int x, int y, short int cor);
@@ -17797,6 +17807,35 @@ int mouse_x = SCREEN_WIDTH / 2;
 int mouse_y = SCREEN_HEIGHT / 2;
 int mouse_click = 0;
 
+void *lw_bridge_map = NULL;
+void *front_buffer_map = NULL;
+void *back_buffer_map = NULL;
+
+void inicializa_hardware_linux(void) {
+    int fd;
+    if ((fd = open("/dev/mem", (O_RDWR | O_SYNC))) == -1) {
+        printf("ERRO: nao foi possivel abrir /dev/mem.\n");
+        exit(1);
+    }
+    lw_bridge_map = mmap(NULL, LW_BRIDGE_SPAN, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, LW_BRIDGE_BASE);
+    if (lw_bridge_map == MAP_FAILED) {
+        printf("ERRO: mmap lw_bridge_map falhou.\n");
+        close(fd);
+        exit(1);
+    }
+    front_buffer_map = mmap(NULL, SCREEN_WIDTH * SCREEN_HEIGHT * 2, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, FRONT_BUFFER_ADDR);
+    if (front_buffer_map == MAP_FAILED) {
+        printf("ERRO: mmap front_buffer falhou.\n");
+        exit(1);
+    }
+    back_buffer_map = mmap(NULL, SCREEN_WIDTH * SCREEN_HEIGHT * 2, (PROT_READ | PROT_WRITE), MAP_SHARED, fd, BACK_BUFFER_ADDR);
+    if (back_buffer_map == MAP_FAILED) {
+        printf("ERRO: mmap back_buffer falhou.\n");
+        exit(1);
+    }
+    close(fd);
+}
+
 void desenha_pixel(int x, int y, short int cor) {
     if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return;
     volatile short int *one_pixel_address;
@@ -17819,17 +17858,17 @@ void limpa_tela(short int cor) {
 
 void aguarda_swap_completo(void) {
 #ifndef CPULATOR
-    volatile int *status_ptr = (int *)VGA_STATUS;
+    volatile int *status_ptr = (int *)((char *)lw_bridge_map + (VGA_STATUS - LW_BRIDGE_BASE));
     while ((*status_ptr & 0x01) != 0) {
     }
 #endif
 }
 
 void inicializa_video(void) {
-    volatile int *buffer_ctrl = (int *)VGA_BUFFER_CTRL;
-    volatile int *backbuffer_ctrl = (int *)VGA_BACKBUFFER_CTRL;
+    volatile int *buffer_ctrl = (int *)((char *)lw_bridge_map + (VGA_BUFFER_CTRL - LW_BRIDGE_BASE));
+    volatile int *backbuffer_ctrl = (int *)((char *)lw_bridge_map + (VGA_BACKBUFFER_CTRL - LW_BRIDGE_BASE));
 
-    pixel_buffer_back = (volatile short int *)BACK_BUFFER_ADDR;
+    pixel_buffer_back = (volatile short int *)back_buffer_map;
     limpa_tela(COLOR_SKY);
 
     *backbuffer_ctrl = BACK_BUFFER_ADDR;
@@ -17837,27 +17876,32 @@ void inicializa_video(void) {
     *buffer_ctrl = 1;
     aguarda_swap_completo();
 
-    pixel_buffer_back = (volatile short int *)FRONT_BUFFER_ADDR;
+    pixel_buffer_back = (volatile short int *)front_buffer_map;
     limpa_tela(COLOR_SKY);
 }
 
 void troca_buffers(void) {
-    volatile int *backbuffer_ctrl = (int *)VGA_BACKBUFFER_CTRL;
-    volatile int *buffer_ctrl = (int *)VGA_BUFFER_CTRL;
+    volatile int *backbuffer_ctrl = (int *)((char *)lw_bridge_map + (VGA_BACKBUFFER_CTRL - LW_BRIDGE_BASE));
+    volatile int *buffer_ctrl = (int *)((char *)lw_bridge_map + (VGA_BUFFER_CTRL - LW_BRIDGE_BASE));
 
-    *backbuffer_ctrl = (int)(intptr_t)pixel_buffer_back;
+    if (pixel_buffer_back == (volatile short int *)front_buffer_map) {
+        *backbuffer_ctrl = FRONT_BUFFER_ADDR; /* Hardware precisa do end fisico */
+    } else {
+        *backbuffer_ctrl = BACK_BUFFER_ADDR; /* Hardware precisa do end fisico */
+    }
+    
     *buffer_ctrl = 1;
     aguarda_swap_completo();
 
-    if (pixel_buffer_back == (volatile short int *)FRONT_BUFFER_ADDR) {
-        pixel_buffer_back = (volatile short int *)BACK_BUFFER_ADDR;
+    if (pixel_buffer_back == (volatile short int *)front_buffer_map) {
+        pixel_buffer_back = (volatile short int *)back_buffer_map;
     } else {
-        pixel_buffer_back = (volatile short int *)FRONT_BUFFER_ADDR;
+        pixel_buffer_back = (volatile short int *)front_buffer_map;
     }
 }
 
 void processa_teclado(void) {
-    volatile int *PS2_ptr = (int *)PS2_BASE;
+    volatile int *PS2_ptr = (int *)((char *)lw_bridge_map + (PS2_BASE - LW_BRIDGE_BASE));
     int PS2_data;
     unsigned char byte_recebido;
     static int byte_quebra = 0;
@@ -17895,7 +17939,7 @@ void processa_teclado(void) {
 }
 
 void processa_mouse(void) {
-    volatile int *ps2_mouse = (int *)PS2_MOUSE_BASE;
+    volatile int *ps2_mouse = (int *)((char *)lw_bridge_map + (PS2_MOUSE_BASE - LW_BRIDGE_BASE));
     int data = *ps2_mouse;
     static int byte_count = 0;
     static unsigned char bytes[3];
@@ -17940,7 +17984,7 @@ void processa_mouse(void) {
 }
 
 int chave_sw0_ligada(void) {
-    volatile int *sw_ptr = (int *)SW_BASE;
+    volatile int *sw_ptr = (int *)((char *)lw_bridge_map + (SW_BASE - LW_BRIDGE_BASE));
     return (*sw_ptr) & 0x1;
 }
 
@@ -17949,7 +17993,7 @@ const unsigned char tabela_7seg[10] = {
 };
 
 void atualiza_pontuacao_display(int pontuacao) {
-    volatile int *hex30 = (int *)HEX3_HEX0_BASE;
+    volatile int *hex30 = (int *)((char *)lw_bridge_map + (HEX3_HEX0_BASE - LW_BRIDGE_BASE));
     int digitos[4];
     int i;
     int valor = pontuacao;
@@ -17971,7 +18015,7 @@ void atualiza_pontuacao_display(int pontuacao) {
 }
 
 void atualiza_vidas_display(int vidas) {
-    volatile int *hex54 = (int *)HEX5_HEX4_BASE;
+    volatile int *hex54 = (int *)((char *)lw_bridge_map + (HEX5_HEX4_BASE - LW_BRIDGE_BASE));
     unsigned int digito_vidas;
 
     if (vidas < 0) vidas = 0;
@@ -17982,7 +18026,7 @@ void atualiza_vidas_display(int vidas) {
 }
 
 void atualiza_vidas_leds(int vidas) {
-    volatile int *leds = (int *)LEDR_BASE;
+    volatile int *leds = (int *)((char *)lw_bridge_map + (LEDR_BASE - LW_BRIDGE_BASE));
     int padrao = 0;
     int i;
 
@@ -19332,7 +19376,9 @@ void atraso_frame(void) {
 }
 
 int main(void) {
-    volatile int *ps2_mouse = (int *)PS2_MOUSE_BASE;
+    inicializa_hardware_linux();
+
+    volatile int *ps2_mouse = (int *)((char *)lw_bridge_map + (PS2_MOUSE_BASE - LW_BRIDGE_BASE));
     *ps2_mouse = 0xF4; /* Habilita dados do mouse */
 
     inicializa_video();
