@@ -18675,15 +18675,18 @@ void desenha_cenario(void) {
         int mundo_x = sx + camera_x;
         int eh_gap = 0;
         int eh_lava = 0;
-        int borda_y = 0;
+        int max_depth = 0;
+#ifndef COLOR_BROWN
+#define COLOR_BROWN 0x8200
+#endif
 
         for (i = 0; i < MAX_GAPS; i++) {
             if (mundo_x >= gaps[i].x && mundo_x < gaps[i].x + gaps[i].largura) {
                 eh_gap = 1; 
                 int dist_esq = mundo_x - gaps[i].x;
                 int dist_dir = gaps[i].x + gaps[i].largura - 1 - mundo_x;
-                if (dist_esq < 12) borda_y = (12 - dist_esq);
-                else if (dist_dir < 12) borda_y = (12 - dist_dir);
+                int dist_min = (dist_esq < dist_dir) ? dist_esq : dist_dir;
+                max_depth = dist_min * 3;
                 break;
             }
         }
@@ -18692,37 +18695,41 @@ void desenha_cenario(void) {
                 eh_lava = 1; 
                 int dist_esq = mundo_x - lavas[i].x;
                 int dist_dir = lavas[i].x + lavas[i].largura - 1 - mundo_x;
-                if (dist_esq < 12) borda_y = (12 - dist_esq);
-                else if (dist_dir < 12) borda_y = (12 - dist_dir);
+                int dist_min = (dist_esq < dist_dir) ? dist_esq : dist_dir;
+                max_depth = dist_min * 3;
                 break;
             }
         }
+
+        if (max_depth > (SCREEN_HEIGHT - GROUND_Y)) max_depth = (SCREEN_HEIGHT - GROUND_Y);
 
         if (!eh_gap) {
             int col;
             if (eh_lava) {
                 int col_tile = mundo_x % LAVA_TILE_SIZE;
                 const unsigned short *topo = lava_topo_anim[lava_anim_frame];
-                for (col = borda_y; col < LAVA_TILE_SIZE && GROUND_Y + col < SCREEN_HEIGHT; col++) {
-                    unsigned short cor = topo[col * LAVA_TILE_SIZE + col_tile];
-                    if (col == borda_y && borda_y > 0) {
-                        desenha_pixel(sx, GROUND_Y + col, COLOR_STONE_DARK);
-                    } else if (cor != LAVA_TRANSPARENT) {
+                for (col = 0; col <= max_depth && GROUND_Y + col < SCREEN_HEIGHT; col++) {
+                    if (col == max_depth) {
+                        desenha_pixel(sx, GROUND_Y + col, COLOR_BROWN);
+                    } else if (col < LAVA_TILE_SIZE) {
+                        unsigned short cor = topo[col * LAVA_TILE_SIZE + col_tile];
+                        if (cor != LAVA_TRANSPARENT) desenha_pixel(sx, GROUND_Y + col, cor);
+                    } else {
+                        /* Lava toda laranja mais claro que nem o topo */
+                        unsigned short cor = topo[15 * LAVA_TILE_SIZE + col_tile];
                         desenha_pixel(sx, GROUND_Y + col, cor);
                     }
                 }
-                for (col = (borda_y > LAVA_TILE_SIZE ? borda_y : LAVA_TILE_SIZE); col < (SCREEN_HEIGHT - GROUND_Y); col++) {
-                    int tile_y = (col - LAVA_TILE_SIZE) % LAVA_TILE_SIZE;
-                    if (col == borda_y && borda_y > 0) desenha_pixel(sx, GROUND_Y + col, COLOR_STONE_DARK);
-                    else desenha_pixel(sx, GROUND_Y + col, lava_corpo[tile_y * LAVA_TILE_SIZE + col_tile]);
-                }
             }
         } else {
-            /* gap: pinta de preto para que o buraco apareca visivelmente com borda */
+            /* gap: topo reto, afunilando em triangulo com borda marrom */
             int col;
-            for (col = borda_y; col < (SCREEN_HEIGHT - GROUND_Y); col++) {
-                if (col == borda_y && borda_y > 0) desenha_pixel(sx, GROUND_Y + col, COLOR_STONE_DARK);
-                else desenha_pixel(sx, GROUND_Y + col, COLOR_BLACK);
+            for (col = 0; col <= max_depth && GROUND_Y + col < SCREEN_HEIGHT; col++) {
+                if (col == max_depth) {
+                    desenha_pixel(sx, GROUND_Y + col, COLOR_BROWN);
+                } else {
+                    desenha_pixel(sx, GROUND_Y + col, COLOR_BLACK);
+                }
             }
         }
     }
