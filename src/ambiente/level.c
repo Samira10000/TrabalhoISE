@@ -6,6 +6,7 @@
 #include "fundo_cenario3.h"
 #include "lava_sprites.h"
 #include "token_sprites.h"
+#include "plataforma_sprites.h"
 
 Gap gaps[MAX_GAPS];
 Lava lavas[MAX_LAVAS];
@@ -29,12 +30,12 @@ void inicializa_lavas(void) {
 }
 
 void inicializa_plataformas(void) {
-    plataformas[0].x = 148;  plataformas[0].y = 158; plataformas[0].largura = 52; plataformas[0].altura = 8;
-    plataformas[1].x = 448;  plataformas[1].y = 152; plataformas[1].largura = 52; plataformas[1].altura = 8;
-    plataformas[2].x = 828;  plataformas[2].y = 155; plataformas[2].largura = 54; plataformas[2].altura = 8;
-    plataformas[3].x = 1118; plataformas[3].y = 150; plataformas[3].largura = 52; plataformas[3].altura = 8;
-    plataformas[4].x = 580;  plataformas[4].y = 148; plataformas[4].largura = 44; plataformas[4].altura = 8;
-    plataformas[5].x = 1310; plataformas[5].y = 155; plataformas[5].largura = 44; plataformas[5].altura = 8;
+    plataformas[0].x = 148;  plataformas[0].y = 158 - 8; plataformas[0].largura = 52; plataformas[0].altura = 16;
+    plataformas[1].x = 448;  plataformas[1].y = 152 - 8; plataformas[1].largura = 52; plataformas[1].altura = 16;
+    plataformas[2].x = 828;  plataformas[2].y = 155 - 8; plataformas[2].largura = 54; plataformas[2].altura = 16;
+    plataformas[3].x = 1118; plataformas[3].y = 150 - 8; plataformas[3].largura = 52; plataformas[3].altura = 16;
+    plataformas[4].x = 580;  plataformas[4].y = 148 - 8; plataformas[4].largura = 44; plataformas[4].altura = 16;
+    plataformas[5].x = 1310; plataformas[5].y = 155 - 8; plataformas[5].largura = 44; plataformas[5].altura = 16;
 }
 
 void inicializa_tokens(void) {
@@ -187,12 +188,27 @@ void desenha_cenario(void) {
 }
 
 void desenha_plataformas(void) {
-    int i;
+    int i, x, y;
     for (i = 0; i < MAX_PLATAFORMAS; i++) {
         int sx = plataformas[i].x - camera_x;
         if (sx + plataformas[i].largura < 0 || sx > SCREEN_WIDTH) continue;
-        desenha_retangulo(sx, plataformas[i].y, plataformas[i].largura, plataformas[i].altura, COLOR_PLATFORM);
-        desenha_retangulo(sx, plataformas[i].y, plataformas[i].largura, 2, COLOR_PLATFORM_TOP);
+        
+        for (y = 0; y < plataformas[i].altura; y++) {
+            int draw_y = plataformas[i].y + y;
+            if (draw_y < 0 || draw_y >= SCREEN_HEIGHT) continue;
+            
+            for (x = 0; x < plataformas[i].largura; x++) {
+                int draw_x = sx + x;
+                if (draw_x >= 0 && draw_x < SCREEN_WIDTH) {
+                    int tx = x % PLAT_TILE_W;
+                    int ty = y % PLAT_TILE_H;
+                    unsigned short cor = plataforma_tile[ty * PLAT_TILE_W + tx];
+                    if (cor != PLAT_TRANSPARENT) {
+                        desenha_pixel(draw_x, draw_y, cor);
+                    }
+                }
+            }
+        }
     }
 }
 
