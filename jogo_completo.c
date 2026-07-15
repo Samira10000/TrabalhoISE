@@ -136,19 +136,30 @@
 #define SCANCODE_A      0x1C
 #define SCANCODE_D      0x23
 #define SCANCODE_W      0x1D
+#define SCANCODE_S      0x1B
 #define SCANCODE_J      0x3B
 #define SCANCODE_SPACE  0x29
 #define SCANCODE_R      0x2D
 #define SCANCODE_LEFT   0x6B
 #define SCANCODE_RIGHT  0x74
 #define SCANCODE_UP     0x75
+#define SCANCODE_DOWN   0x72
+
+/* ============================================================================
+ * MENU DE CONFIGURACOES
+ * ============================================================================
+ */
+#define MENU_NUM_OPCOES   3
+#define MENU_CONTINUAR    0
+#define MENU_REINICIAR    1
+#define MENU_CONTROLES    2
 
 #endif
 #ifndef TYPES_H
 #define TYPES_H
 
 typedef enum { FACING_LEFT, FACING_RIGHT } Direcao;
-typedef enum { ESTADO_INICIO, ESTADO_JOGANDO, ESTADO_PAUSADO, ESTADO_GAMEOVER, ESTADO_VITORIA } EstadoJogo;
+typedef enum { ESTADO_INICIO, ESTADO_JOGANDO, ESTADO_PAUSADO, ESTADO_GAMEOVER, ESTADO_VITORIA, ESTADO_CONFIGURACAO, ESTADO_CONTROLES } EstadoJogo;
 typedef enum { ANIM_IDLE, ANIM_RUN, ANIM_JUMP, ANIM_SHOOT, ANIM_INTRO } AnimacaoEstado;
 
 typedef struct {
@@ -229,7 +240,7 @@ typedef struct {
 #include <stdint.h>
 
 extern volatile short int *pixel_buffer_back;
-extern int tecla_esquerda, tecla_direita, tecla_cima, tecla_atirar, tecla_reiniciar;
+extern int tecla_esquerda, tecla_direita, tecla_cima, tecla_baixo, tecla_atirar, tecla_reiniciar;
 
 void desenha_pixel(int x, int y, short int cor);
 void desenha_retangulo(int x, int y, int largura, int altura, short int cor);
@@ -17726,6 +17737,7 @@ void desenha_tokens(void);
 extern int camera_x;
 extern int nivel_largura;
 extern EstadoJogo estado;
+extern int menu_opcao_selecionada;
 
 void inicializa_jogo(void);
 int colide(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh);
@@ -17735,6 +17747,9 @@ void desenha_tela_inicio(void);
 void desenha_tela_gameover(void);
 void desenha_tela_vitoria(void);
 void desenha_tela_pausa(void);
+void desenha_tela_configuracao(void);
+void desenha_tela_controles(void);
+void processa_menu_configuracao(void);
 void renderiza_cena(void);
 void atualiza_estado(void);
 void processa_pausa_e_reinicio(void);
@@ -17745,7 +17760,7 @@ void atraso_frame(void);
 #include <stdint.h>
 
 volatile short int *pixel_buffer_back;
-int tecla_esquerda = 0, tecla_direita = 0, tecla_cima = 0, tecla_atirar = 0;
+int tecla_esquerda = 0, tecla_direita = 0, tecla_cima = 0, tecla_baixo = 0, tecla_atirar = 0;
 int tecla_reiniciar = 0;
 
 void desenha_pixel(int x, int y, short int cor) {
@@ -17827,6 +17842,7 @@ void processa_teclado(void) {
                 case SCANCODE_A: tecla_esquerda = pressionada; break;
                 case SCANCODE_D: tecla_direita = pressionada; break;
                 case SCANCODE_W: tecla_cima = pressionada; break;
+                case SCANCODE_S: tecla_baixo = pressionada; break;
                 case SCANCODE_J:
                 case SCANCODE_SPACE:
                     if (byte_extendido == 0) tecla_atirar = pressionada;
@@ -17835,6 +17851,7 @@ void processa_teclado(void) {
                 case SCANCODE_LEFT: if (byte_extendido) tecla_esquerda = pressionada; break;
                 case SCANCODE_RIGHT: if (byte_extendido) tecla_direita = pressionada; break;
                 case SCANCODE_UP: if (byte_extendido) tecla_cima = pressionada; break;
+                case SCANCODE_DOWN: if (byte_extendido) tecla_baixo = pressionada; break;
             }
             byte_quebra = 0;
             byte_extendido = 0;
@@ -18710,6 +18727,7 @@ void desenha_tokens(void) {
 int camera_x = 0;
 int nivel_largura = 1500;
 EstadoJogo estado = ESTADO_JOGANDO;
+int menu_opcao_selecionada = 0;
 
 void inicializa_jogo(void) {
     inicializa_jogador();
@@ -18807,6 +18825,289 @@ void desenha_tela_pausa(void) {
     desenha_retangulo(90, 142, 100, 4, COLOR_ENEMY_EYE);
 }
 
+void desenha_engrenagem(int cx, int cy, short int cor) {
+    int ox = cx - 6;
+    int oy = cy - 6;
+    desenha_retangulo(ox + 4, oy + 2, 4, 8, cor);
+    desenha_retangulo(ox + 2, oy + 4, 8, 4, cor);
+    desenha_retangulo(ox + 3, oy + 3, 6, 6, cor);
+    desenha_retangulo(ox + 5, oy + 5, 2, 2, COLOR_BLACK);
+    desenha_retangulo(ox + 5, oy + 0, 2, 2, cor);
+    desenha_retangulo(ox + 5, oy + 10, 2, 2, cor);
+    desenha_retangulo(ox + 0, oy + 5, 2, 2, cor);
+    desenha_retangulo(ox + 10, oy + 5, 2, 2, cor);
+    desenha_retangulo(ox + 1, oy + 1, 2, 2, cor);
+    desenha_retangulo(ox + 9, oy + 1, 2, 2, cor);
+    desenha_retangulo(ox + 1, oy + 9, 2, 2, cor);
+    desenha_retangulo(ox + 9, oy + 9, 2, 2, cor);
+}
+
+void desenha_letra(int x, int y, char c, short int cor) {
+    switch (c) {
+        case 'C':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        case 'O':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x+4, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        case 'N':
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x+4, y, 1, 5, cor);
+            desenha_pixel(x+1, y+1, cor);
+            desenha_pixel(x+2, y+2, cor);
+            desenha_pixel(x+3, y+3, cor);
+            break;
+        case 'F':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y+2, 4, 1, cor);
+            break;
+        case 'I':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x+2, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        case 'G':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            desenha_retangulo(x+4, y+2, 1, 3, cor);
+            desenha_retangulo(x+2, y+2, 3, 1, cor);
+            break;
+        case 'T':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x+2, y, 1, 5, cor);
+            break;
+        case 'R':
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y, 4, 1, cor);
+            desenha_retangulo(x+4, y, 1, 3, cor);
+            desenha_retangulo(x, y+2, 5, 1, cor);
+            desenha_pixel(x+3, y+3, cor);
+            desenha_pixel(x+4, y+4, cor);
+            break;
+        case 'A':
+            desenha_retangulo(x+1, y, 3, 1, cor);
+            desenha_retangulo(x, y+1, 1, 4, cor);
+            desenha_retangulo(x+4, y+1, 1, 4, cor);
+            desenha_retangulo(x, y+2, 5, 1, cor);
+            break;
+        case 'E':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y+2, 4, 1, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        case 'S':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x, y, 1, 3, cor);
+            desenha_retangulo(x, y+2, 5, 1, cor);
+            desenha_retangulo(x+4, y+2, 1, 3, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        case 'L':
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        case 'U':
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x+4, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        case 'D':
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y, 4, 1, cor);
+            desenha_retangulo(x+4, y+1, 1, 3, cor);
+            desenha_retangulo(x, y+4, 4, 1, cor);
+            break;
+        case 'P':
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x+4, y, 1, 3, cor);
+            desenha_retangulo(x, y+2, 5, 1, cor);
+            break;
+        case 'W':
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x+4, y, 1, 5, cor);
+            desenha_pixel(x+2, y+3, cor);
+            desenha_pixel(x+1, y+4, cor);
+            desenha_pixel(x+3, y+4, cor);
+            break;
+        case 'J':
+            desenha_retangulo(x+4, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            desenha_pixel(x, y+3, cor);
+            break;
+        case 'V':
+            desenha_retangulo(x, y, 1, 4, cor);
+            desenha_retangulo(x+4, y, 1, 4, cor);
+            desenha_pixel(x+1, y+3, cor);
+            desenha_pixel(x+3, y+3, cor);
+            desenha_pixel(x+2, y+4, cor);
+            break;
+        case '/':
+            desenha_pixel(x+4, y, cor);
+            desenha_pixel(x+3, y+1, cor);
+            desenha_pixel(x+2, y+2, cor);
+            desenha_pixel(x+1, y+3, cor);
+            desenha_pixel(x, y+4, cor);
+            break;
+        case '=':
+            desenha_retangulo(x, y+1, 5, 1, cor);
+            desenha_retangulo(x, y+3, 5, 1, cor);
+            break;
+        case '0':
+            desenha_retangulo(x, y, 5, 1, cor);
+            desenha_retangulo(x, y, 1, 5, cor);
+            desenha_retangulo(x+4, y, 1, 5, cor);
+            desenha_retangulo(x, y+4, 5, 1, cor);
+            break;
+        default:
+            break;
+    }
+}
+
+void desenha_texto(int x, int y, const char *texto, short int cor) {
+    int i = 0;
+    while (texto[i] != '\0') {
+        if (texto[i] != ' ') {
+            desenha_letra(x, y, texto[i], cor);
+        }
+        x += 6;
+        i++;
+    }
+}
+
+void desenha_tela_configuracao(void) {
+    int x, y, i;
+    const char *opcoes[3];
+    opcoes[0] = "CONTINUAR";
+    opcoes[1] = "REINICIAR";
+    opcoes[2] = "CONTROLES";
+
+    desenha_cenario();
+    desenha_plataformas();
+    desenha_tokens();
+    desenha_barris();
+    desenha_inimigos();
+    desenha_projeteis();
+    desenha_jogador();
+
+    for (y = 0; y < SCREEN_HEIGHT; y += 2) {
+        for (x = 0; x < SCREEN_WIDTH; x += 2) {
+            desenha_pixel(x, y, COLOR_BLACK);
+        }
+    }
+
+    desenha_retangulo(60, 50, 200, 140, COLOR_STONE_DARK);
+    desenha_retangulo(62, 52, 196, 136, COLOR_BLACK);
+    desenha_retangulo(60, 50, 200, 2, COLOR_TREASURE);
+    desenha_retangulo(60, 188, 200, 2, COLOR_TREASURE);
+    desenha_retangulo(60, 50, 2, 140, COLOR_TREASURE);
+    desenha_retangulo(258, 50, 2, 140, COLOR_TREASURE);
+
+    desenha_engrenagem(90, 67, COLOR_TREASURE);
+    desenha_texto(102, 64, "CONFIG", COLOR_WHITE);
+
+    desenha_retangulo(72, 80, 176, 1, COLOR_STONE_DARK);
+
+    for (i = 0; i < MENU_NUM_OPCOES; i++) {
+        int oy = 92 + i * 25;
+        short int cor_opcao;
+
+        if (i == menu_opcao_selecionada) {
+            cor_opcao = COLOR_TREASURE;
+            desenha_retangulo(82, oy + 1, 1, 5, COLOR_TREASURE);
+            desenha_retangulo(83, oy + 2, 1, 3, COLOR_TREASURE);
+            desenha_pixel(84, oy + 3, COLOR_TREASURE);
+            desenha_retangulo(72, oy - 2, 176, 11, COLOR_STONE_DARK);
+        } else {
+            cor_opcao = COLOR_WHITE;
+        }
+
+        desenha_texto(92, oy, opcoes[i], cor_opcao);
+    }
+
+    desenha_texto(72, 158, "W/S = NAVEGAR", COLOR_STONE);
+    desenha_texto(72, 170, "J   = SELECIONAR", COLOR_STONE);
+}
+
+void desenha_tela_controles(void) {
+    limpa_tela(COLOR_BLACK);
+
+    desenha_retangulo(40, 30, 240, 180, COLOR_STONE_DARK);
+    desenha_retangulo(42, 32, 236, 176, COLOR_BLACK);
+    desenha_retangulo(40, 30, 240, 2, COLOR_TREASURE);
+    desenha_retangulo(40, 208, 240, 2, COLOR_TREASURE);
+    desenha_retangulo(40, 30, 2, 180, COLOR_TREASURE);
+    desenha_retangulo(278, 30, 2, 180, COLOR_TREASURE);
+
+    desenha_texto(100, 44, "CONTROLES", COLOR_TREASURE);
+    desenha_retangulo(52, 55, 216, 1, COLOR_STONE_DARK);
+
+    desenha_texto(60, 68, "A / ESQUERDA", COLOR_WHITE);
+    desenha_texto(188, 68, "= ESQUERDA", COLOR_STONE);
+
+    desenha_texto(60, 84, "D / DIREITA", COLOR_WHITE);
+    desenha_texto(188, 84, "= DIREITA", COLOR_STONE);
+
+    desenha_texto(60, 100, "W / CIMA", COLOR_WHITE);
+    desenha_texto(188, 100, "= PULAR", COLOR_STONE);
+
+    desenha_texto(60, 116, "J / ESPACO", COLOR_WHITE);
+    desenha_texto(188, 116, "= ATIRAR", COLOR_STONE);
+
+    desenha_texto(60, 132, "R", COLOR_WHITE);
+    desenha_texto(188, 132, "= REINICIAR", COLOR_STONE);
+
+    desenha_texto(60, 148, "SW0", COLOR_WHITE);
+    desenha_texto(188, 148, "= CONFIG", COLOR_STONE);
+
+    desenha_retangulo(52, 164, 216, 1, COLOR_STONE_DARK);
+
+    desenha_texto(88, 178, "J = VOLTAR", COLOR_TREASURE);
+}
+
+void processa_menu_configuracao(void) {
+    static int cima_anterior = 0;
+    static int baixo_anterior = 0;
+    static int atirar_anterior = 0;
+
+    if (estado == ESTADO_CONFIGURACAO) {
+        if (tecla_cima && !cima_anterior) {
+            menu_opcao_selecionada--;
+            if (menu_opcao_selecionada < 0) menu_opcao_selecionada = MENU_NUM_OPCOES - 1;
+        }
+        if (tecla_baixo && !baixo_anterior) {
+            menu_opcao_selecionada++;
+            if (menu_opcao_selecionada >= MENU_NUM_OPCOES) menu_opcao_selecionada = 0;
+        }
+
+        if (tecla_atirar && !atirar_anterior) {
+            if (menu_opcao_selecionada == MENU_CONTINUAR) {
+                estado = ESTADO_JOGANDO;
+            } else if (menu_opcao_selecionada == MENU_REINICIAR) {
+                inicializa_jogo();
+            } else if (menu_opcao_selecionada == MENU_CONTROLES) {
+                estado = ESTADO_CONTROLES;
+            }
+        }
+    } else if (estado == ESTADO_CONTROLES) {
+        if (tecla_atirar && !atirar_anterior) {
+            estado = ESTADO_CONFIGURACAO;
+        }
+    }
+
+    cima_anterior = tecla_cima;
+    baixo_anterior = tecla_baixo;
+    atirar_anterior = tecla_atirar;
+}
+
 void renderiza_cena(void) {
     if (estado == ESTADO_INICIO) {
         desenha_tela_inicio();
@@ -18822,6 +19123,14 @@ void renderiza_cena(void) {
     }
     if (estado == ESTADO_PAUSADO) {
         desenha_tela_pausa();
+        return;
+    }
+    if (estado == ESTADO_CONFIGURACAO) {
+        desenha_tela_configuracao();
+        return;
+    }
+    if (estado == ESTADO_CONTROLES) {
+        desenha_tela_controles();
         return;
     }
 
@@ -18852,22 +19161,19 @@ void processa_pausa_e_reinicio(void) {
         if (estado == ESTADO_INICIO) {
             estado = ESTADO_JOGANDO;
         } else if (estado == ESTADO_JOGANDO) {
-            estado = ESTADO_PAUSADO;
-        } else if (estado == ESTADO_PAUSADO) {
+            estado = ESTADO_CONFIGURACAO;
+            menu_opcao_selecionada = 0;
+        } else if (estado == ESTADO_CONFIGURACAO || estado == ESTADO_CONTROLES) {
             estado = ESTADO_JOGANDO;
         }
     }
     chave_anterior = chave_atual;
-
-    if (estado == ESTADO_PAUSADO && tecla_reiniciar) {
-        inicializa_jogo();
-        tecla_reiniciar = 0;
-    }
 }
 
 void le_entrada(void) {
     processa_teclado();
     processa_pausa_e_reinicio();
+    processa_menu_configuracao();
 }
 
 void atraso_frame(void) {
